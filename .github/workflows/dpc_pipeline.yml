@@ -3,14 +3,14 @@ name: Run DPC Pipeline
 on:
   schedule:
     - cron: '0 1 * * *'  # Runs every day at 01:00 UTC
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:      # Allows manual triggering
 
 jobs:
   run-dpc:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3  # Checkout code
+      - uses: actions/checkout@v3  # Checkout repository code
 
       - name: Setup R
         uses: r-lib/actions/setup-r@v2  # Set up R environment
@@ -32,5 +32,5 @@ jobs:
 
       - name: Upload aggregated files to Google Drive
         env:
-	  GDRIVE_PAT: ${{ secrets.GDRIVE_PAT }}  # Use the secret here
+          GDRIVE_PAT: ${{ secrets.GDRIVE_PAT }}  # Use the secret here
         run: Rscript upload_to_drive.r
