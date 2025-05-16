@@ -31,6 +31,6 @@ jobs:
         run: Rscript AGGREGA_DAILY_DPC.r
 
       - name: Upload aggregated files to Google Drive
-		    env:
-		      GDRIVE_PAT: ${{ secrets.GDRIVE_PAT }}  # Use the secret here
-		    run: Rscript upload_to_drive.r
+	env:
+	  GDRIVE_PAT: ${{ secrets.GDRIVE_PAT }}  # Use the secret here
+	run: Rscript upload_to_drive.r
