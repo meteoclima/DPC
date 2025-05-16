@@ -1,22 +1,21 @@
 library(googledrive)
-library(base64enc)
 
-# Read the base64-encoded token from the GitHub secret
-token_b64 <- Sys.getenv("GDRIVE_PAT")  # Get token from the secret
-token_path <- tempfile(fileext = ".rds")
-writeBin(base64decode(token_b64), token_path)  # Decode the base64 string to the .rds token file
+# Write the JSON key from environment variable to a temp file
+json_key <- Sys.getenv("GDRIVE_SERVICE_ACCOUNT_JSON")
+json_path <- tempfile(fileext = ".json")
+writeLines(json_key, json_path)
 
-# Authenticate using the token (no cache to avoid issues in CI)
-drive_auth(token = token_path, cache = FALSE)
+# Authenticate using the service account JSON key
+drive_auth(path = json_path)
 
-# Correct folder ID without query parameters
+# Google Drive folder ID (remove any URL query parameters)
 drive_folder_id <- "1o-1bHJ3nzNEEj1M8eY468BPKZkJXpyYj"
 
-# Directory to upload from
+# Local directory with files to upload
 local_dir <- "./DPC/aggregati"
 files <- list.files(local_dir, pattern = "\\.tif$", full.names = TRUE)
 
-# Upload each file to the Google Drive folder
+# Upload each file to the Drive folder
 for (file in files) {
   message("Uploading ", basename(file), " to Google Drive folder with ID: ", drive_folder_id)
   drive_upload(media = file, path = as_id(drive_folder_id), overwrite = TRUE)
