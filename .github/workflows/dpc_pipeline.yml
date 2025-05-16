@@ -25,12 +25,12 @@ jobs:
           Rscript -e 'install.packages(c("httr","jsonlite","terra","lubridate","googledrive","base64enc"))'
 
       - name: Run download script
-        run: Rscript DOWNLOAD_DPC.R
+        run: Rscript DOWNLOAD_DPC.r
 
       - name: Run aggregation script
-        run: Rscript AGGREGA_DAILY_DPC.R
+        run: Rscript AGGREGA_DAILY_DPC.r
 
       - name: Upload aggregated files to Google Drive
         env:
           GDRIVE_PAT: ${{ secrets.GDRIVE_PAT }}  # Use the secret here
-        run: Rscript upload_to_drive.R
+        run: Rscript upload_to_drive.r
