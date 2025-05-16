@@ -6,11 +6,11 @@ token_b64 <- Sys.getenv("GDRIVE_PAT")  # Get token from the secret
 token_path <- tempfile(fileext = ".rds")
 writeBin(base64decode(token_b64), token_path)  # Decode the base64 string to the .rds token file
 
-# Authenticate using the token
-drive_auth(token = token_path)
+# Authenticate using the token (no cache to avoid issues in CI)
+drive_auth(token = token_path, cache = FALSE)
 
-# Folder ID where you want to upload the files
-drive_folder_id <- "1o-1bHJ3nzNEEj1M8eY468BPKZkJXpyYj?hl=it"  # Replace with your actual folder ID
+# Correct folder ID without query parameters
+drive_folder_id <- "1o-1bHJ3nzNEEj1M8eY468BPKZkJXpyYj"
 
 # Directory to upload from
 local_dir <- "./DPC/aggregati"
