@@ -55,7 +55,7 @@ set_nodata_value <- function(input_path, output_path, nodata_value = -9999) {
 product_types <- c("SRT1", "TEMP")
 
 # Date di esempio: ultimi 7 giorni
-start_date <- Sys.Date() - 7
+start_date <- Sys.Date() - 2
 end_date <- Sys.Date()
 
 interval_hours <- 1
