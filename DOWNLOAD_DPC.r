@@ -15,8 +15,14 @@ datetime_to_timestamp_ms <- function(datetime) {
 # Funzione per verificare esistenza prodotto
 exists_product <- function(product_type, timestamp_ms) {
   url <- paste0("https://radar-api.protezionecivile.it/wide/product/existsProduct?type=", product_type, "&time=", timestamp_ms)
-  response <- GET(url)
-  if (status_code(response) != 200) {
+  response <- tryCatch({
+    GET(url)
+  }, error = function(e) {
+    message("Errore nella richiesta per verificare il prodotto: ", e$message)
+    return(NULL)
+  })
+  
+  if (is.null(response) || status_code(response) != 200) {
     warning("Errore nella richiesta: ", status_code(response))
     return(FALSE)
   }
@@ -28,27 +34,44 @@ exists_product <- function(product_type, timestamp_ms) {
 download_product <- function(product_type, timestamp_ms, output_path) {
   url <- "https://radar-api.protezionecivile.it/wide/product/downloadProduct"
   body <- list(productType = product_type, productDate = timestamp_ms)
-  response <- POST(
-    url,
-    body = toJSON(body, auto_unbox = TRUE),
-    encode = "json",
-    add_headers("Content-Type" = "application/json")
-  )
-  if (status_code(response) == 200) {
-    writeBin(content(response, "raw"), output_path)
-    message(paste("✅ Prodotto", product_type, "salvato in:", output_path))
-    return(TRUE)
-  } else {
+  response <- tryCatch({
+    POST(
+      url,
+      body = toJSON(body, auto_unbox = TRUE),
+      encode = "json",
+      add_headers("Content-Type" = "application/json")
+    )
+  }, error = function(e) {
+    message("Errore nella richiesta per scaricare il prodotto: ", e$message)
+    return(NULL)
+  })
+  
+  if (is.null(response) || status_code(response) != 200) {
     warning("❌ Errore nella richiesta: ", status_code(response))
     return(FALSE)
   }
+  writeBin(content(response, "raw"), output_path)
+  message(paste("✅ Prodotto", product_type, "salvato in:", output_path))
+  return(TRUE)
 }
 
 # Funzione per impostare nodata
 set_nodata_value <- function(input_path, output_path, nodata_value = -9999) {
-  r <- rast(input_path)
+  r <- tryCatch({
+    rast(input_path)
+  }, error = function(e) {
+    message("Errore nel caricamento del raster: ", e$message)
+    return(NULL)
+  })
+  
+  if (is.null(r)) {
+    message("❌ Errore nell'elaborazione del raster per", input_path)
+    return(FALSE)
+  }
+  
   NAflag(r) <- nodata_value
   writeRaster(r, output_path, overwrite = TRUE, NAflag = nodata_value)
+  return(TRUE)
 }
 
 # Tipi di prodotto da scaricare
@@ -71,7 +94,13 @@ for (product_type in product_types) {
     if (!file.exists(final_file)) {
       if (exists_product(product_type, timestamp_ms)) {
         temp_file <- tempfile(fileext = ".tif")
-        success <- download_product(product_type, timestamp_ms, temp_file)
+        success <- tryCatch({
+          download_product(product_type, timestamp_ms, temp_file)
+        }, error = function(e) {
+          message("Errore durante il download del prodotto: ", e$message)
+          return(FALSE)
+        })
+        
         if (success) {
           nodata_val <- ifelse(product_type == "TEMP", -99999, -9999)
           set_nodata_value(temp_file, final_file, nodata_value = nodata_val)
