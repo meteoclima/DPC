@@ -32,27 +32,42 @@ exists_product <- function(product_type, timestamp_ms) {
 
 # Funzione per scaricare prodotto
 download_product <- function(product_type, timestamp_ms, output_path) {
-  url <- "https://radar-api.protezionecivile.it/wide/product/downloadProduct"
-  body <- list(productType = product_type, productDate = timestamp_ms)
-  response <- tryCatch({
-    POST(
-      url,
-      body = toJSON(body, auto_unbox = TRUE),
-      encode = "json",
-      add_headers("Content-Type" = "application/json")
-    )
-  }, error = function(e) {
-    message("Errore nella richiesta per scaricare il prodotto: ", e$message)
-    return(NULL)
-  })
-  
-  if (is.null(response) || status_code(response) != 200) {
-    warning("❌ Errore nella richiesta: ", status_code(response))
+
+  body <- list(
+    productType = product_type,
+    productDate = timestamp_ms
+  )
+
+  res <- POST(
+    "https://radar-api.protezionecivile.it/wide/product/downloadProduct",
+    body = toJSON(body, auto_unbox = TRUE),
+    encode = "json",
+    add_headers("Content-Type" = "application/json")
+  )
+
+  if (status_code(res) != 200) {
+    warning("❌ Errore downloadProduct: ", status_code(res))
     return(FALSE)
   }
-  writeBin(content(response, "raw"), output_path)
-  message(paste("✅ Prodotto", product_type, "salvato in:", output_path))
-  return(TRUE)
+
+  # risposta JSON con URL presigned
+  info <- fromJSON(content(res, "text", encoding = "UTF-8"))
+
+  if (is.null(info$url)) {
+    warning("❌ URL presigned mancante")
+    return(FALSE)
+  }
+
+  # download reale del GeoTIFF
+  r <- GET(info$url, write_disk(output_path, overwrite = TRUE))
+
+  if (status_code(r) == 200) {
+    message("✅ Scaricato: ", output_path)
+    return(TRUE)
+  }
+
+  warning("❌ Errore nel download del file S3")
+  return(FALSE)
 }
 
 # Funzione per impostare nodata
@@ -116,3 +131,4 @@ for (product_type in product_types) {
     current_datetime <- current_datetime + hours(interval_hours)
   }
 }
+
