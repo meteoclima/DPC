@@ -24,10 +24,35 @@ get_last_product_info <- function(product_type) {
 
 
 iso_period_to_seconds <- function(iso) {
-  # Converti stringa ISO-8601 tipo "PT10M" in Period
-  p <- lubridate::as.period(lubridate::iso8601(paste0("P0DT", iso))) 
-  # Restituisci secondi
-  lubridate::period_to_seconds(p)
+  # iso è una stringa tipo "PT10M", "PT1H", "PT30M"
+  
+  # rimuovo il prefisso "PT"
+  x <- gsub("PT", "", iso)
+  
+  # inizializzo secondi
+  sec <- 0
+  
+  # se contiene H (ore)
+  if (grepl("H", x)) {
+    h <- as.numeric(sub("H.*", "", x))
+    sec <- sec + h * 3600
+    x <- sub(".*H", "", x)
+  }
+  
+  # se contiene M (minuti)
+  if (grepl("M", x)) {
+    m <- as.numeric(sub("M.*", "", x))
+    sec <- sec + m * 60
+    x <- sub(".*M", "", x)
+  }
+  
+  # se contiene S (secondi)
+  if (grepl("S", x)) {
+    s <- as.numeric(sub("S.*", "", x))
+    sec <- sec + s
+  }
+  
+  return(sec)
 }
 
 download_product <- function(product_type, timestamp_ms, output_path) {
@@ -106,4 +131,5 @@ for (product_type in product_types) {
     }
   }
 }
+
 
