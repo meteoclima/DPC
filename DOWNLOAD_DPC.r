@@ -22,8 +22,12 @@ get_last_product_info <- function(product_type) {
   fromJSON(content(res, "text", encoding = "UTF-8"))
 }
 
+
 iso_period_to_seconds <- function(iso) {
-  as.numeric(period_to_seconds(isoperiod(iso)))
+  # Converti stringa ISO-8601 tipo "PT10M" in Period
+  p <- lubridate::as.period(lubridate::iso8601(paste0("P0DT", iso))) 
+  # Restituisci secondi
+  lubridate::period_to_seconds(p)
 }
 
 download_product <- function(product_type, timestamp_ms, output_path) {
@@ -102,3 +106,4 @@ for (product_type in product_types) {
     }
   }
 }
+
