@@ -25,7 +25,7 @@ get_last_product_info <- function(product_type) {
 iso_period_to_seconds <- function(iso) {
   if (is.null(iso) || iso == "") {
     warning("⚠️ Period string is empty, defaulting to 3600 seconds")
-    return(3600)  # default 1 ora
+    return(3600)
   }
 
   x <- gsub("PT", "", iso)
@@ -53,7 +53,7 @@ iso_period_to_seconds <- function(iso) {
     sec <- 3600
   }
 
-  return(sec)
+  sec
 }
 
 download_product <- function(product_type, timestamp_ms, output_path) {
@@ -89,28 +89,27 @@ set_nodata <- function(input_path, output_path, nodata_value) {
 # PARAMETRI
 # ----------------------------
 product_types <- c("SRT1", "TEMP")
-days_back <- 3   # quanti giorni indietro scaricare
+days_back <- 3
 
 # ----------------------------
 # DOWNLOAD LOOP
 # ----------------------------
 for (product_type in product_types) {
+
   message("➡️ Prodotto ", product_type)
 
   info <- get_last_product_info(product_type)
 
-  # ---- Controllo che l'API abbia prodotto almeno un risultato valido
-  if (length(info$lastProducts) == 0 || info$total == 0) {
-    warning(sprintf("⚠️ Nessun prodotto disponibile per %s - skipped", product_type))
+  # ---- Nessun prodotto disponibile
+  if (info$total == 0 || nrow(info$lastProducts) == 0) {
+    warning("⚠️ Nessun prodotto disponibile per ", product_type)
     next
   }
 
-  # ---- Estraggo i valori del prodotto più recente
-  last_entry <- info$lastProducts[[1]]
-  timestamp_ms <- last_entry$time
-  period_iso  <- last_entry$period
+  # ---- Accesso CORRETTO ai campi (data.frame)
+  timestamp_ms <- info$lastProducts$time[1]
+  period_iso   <- info$lastProducts$period[1]
 
-  # ---- Conversione period ISO → secondi
   step_sec <- iso_period_to_seconds(period_iso)
 
   last_time <- as.POSIXct(timestamp_ms / 1000,
@@ -120,6 +119,7 @@ for (product_type in product_types) {
   times <- seq(from = start_time, to = last_time, by = step_sec)
 
   for (t in times) {
+
     timestamp_ms_loop <- as.numeric(t) * 1000
     fname <- paste0(product_type, "_", format(t, "%Y%m%d_%H%M"), ".tif")
     final_file <- file.path(output_dir, fname)
