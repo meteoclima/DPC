@@ -12,6 +12,7 @@ dir.create(output_dir, showWarnings = FALSE)
 # ----------------------------
 # Utility
 # ----------------------------
+
 get_last_product_info <- function(product_type) {
   url <- paste0(
     "https://radar-api.protezionecivile.it/findLastProductByType?type=",
@@ -23,8 +24,9 @@ get_last_product_info <- function(product_type) {
 }
 
 iso_period_to_seconds <- function(iso) {
+
   if (is.null(iso) || iso == "") {
-    warning("⚠️ Period string is empty, defaulting to 3600 seconds")
+    warning("⚠️ Period vuoto, uso default 3600 s")
     return(3600)
   }
 
@@ -32,24 +34,21 @@ iso_period_to_seconds <- function(iso) {
   sec <- 0
 
   if (grepl("H", x)) {
-    h <- as.numeric(sub("H.*", "", x))
-    sec <- sec + h * 3600
+    sec <- sec + as.numeric(sub("H.*", "", x)) * 3600
     x <- sub(".*H", "", x)
   }
 
   if (grepl("M", x)) {
-    m <- as.numeric(sub("M.*", "", x))
-    sec <- sec + m * 60
+    sec <- sec + as.numeric(sub("M.*", "", x)) * 60
     x <- sub(".*M", "", x)
   }
 
   if (grepl("S", x)) {
-    s <- as.numeric(sub("S.*", "", x))
-    sec <- sec + s
+    sec <- sec + as.numeric(sub("S.*", "", x))
   }
 
-  if (sec == 0) {
-    warning("⚠️ Period string could not be parsed, defaulting to 3600 seconds")
+  if (sec <= 0 || is.na(sec)) {
+    warning("⚠️ Period non interpretabile, uso default 3600 s")
     sec <- 3600
   }
 
@@ -100,13 +99,13 @@ for (product_type in product_types) {
 
   info <- get_last_product_info(product_type)
 
-  # ---- Nessun prodotto disponibile
-  if (info$total == 0 || nrow(info$lastProducts) == 0) {
+  # ---- Verifica disponibilità prodotto
+  if (is.null(info$lastProducts) || nrow(info$lastProducts) == 0) {
     warning("⚠️ Nessun prodotto disponibile per ", product_type)
     next
   }
 
-  # ---- Accesso CORRETTO ai campi (data.frame)
+  # ---- Estrazione valori (lastProducts è data.frame)
   timestamp_ms <- info$lastProducts$time[1]
   period_iso   <- info$lastProducts$period[1]
 
@@ -114,14 +113,23 @@ for (product_type in product_types) {
 
   last_time <- as.POSIXct(timestamp_ms / 1000,
                           origin = "1970-01-01", tz = "UTC")
+
   start_time <- last_time - days(days_back)
 
+  # ---- Sequenza temporale (forzata POSIXct)
   times <- seq(from = start_time, to = last_time, by = step_sec)
+  times <- as.POSIXct(times, origin = "1970-01-01", tz = "UTC")
 
   for (t in times) {
 
     timestamp_ms_loop <- as.numeric(t) * 1000
-    fname <- paste0(product_type, "_", format(t, "%Y%m%d_%H%M"), ".tif")
+
+    fname <- paste0(
+      product_type, "_",
+      strftime(t, "%Y%m%d_%H%M"),
+      ".tif"
+    )
+
     final_file <- file.path(output_dir, fname)
 
     if (file.exists(final_file)) next
