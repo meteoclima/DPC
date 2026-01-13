@@ -32,42 +32,50 @@ exists_product <- function(product_type, timestamp_ms) {
 
 # Funzione per scaricare prodotto
 download_product <- function(product_type, timestamp_ms, output_path) {
-
+  # 1. Costruisci il corpo della richiesta come da documentazione
   body <- list(
     productType = product_type,
     productDate = timestamp_ms
   )
-
+  
+  # 2. Invia la richiesta all'ENDPOINT CORRETTO
   res <- POST(
-    "https://radar-api.protezionecivile.it/wide/product/downloadProduct",
+    "https://radar-api.protezionecivile.it/downloadProduct", # URL CORRETTO
     body = toJSON(body, auto_unbox = TRUE),
     encode = "json",
     add_headers("Content-Type" = "application/json")
   )
-
+  
+  # 3. Gestisci la risposta: se 404, il prodotto non esiste
+  if (status_code(res) == 404) {
+    message("ℹ️ Prodotto ", product_type, " non disponibile per il timestamp: ", timestamp_ms)
+    return(FALSE) # Indica che non c'è file da scaricare
+  }
+  
+  # 4. Gestisci altri errori HTTP
   if (status_code(res) != 200) {
-    warning("❌ Errore downloadProduct: ", status_code(res))
+    warning("❌ Errore nella richiesta downloadProduct: ", status_code(res))
     return(FALSE)
   }
-
-  # risposta JSON con URL presigned
+  
+  # 5. Estrai l'URL pre-signed dalla risposta JSON
   info <- fromJSON(content(res, "text", encoding = "UTF-8"))
-
+  
   if (is.null(info$url)) {
-    warning("❌ URL presigned mancante")
+    warning("❌ URL presigned mancante nella risposta.")
     return(FALSE)
   }
-
-  # download reale del GeoTIFF
+  
+  # 6. Scarica il file GeoTIFF usando l'URL ottenuto
   r <- GET(info$url, write_disk(output_path, overwrite = TRUE))
-
+  
   if (status_code(r) == 200) {
     message("✅ Scaricato: ", output_path)
     return(TRUE)
+  } else {
+    warning("❌ Errore nel download del file S3")
+    return(FALSE)
   }
-
-  warning("❌ Errore nel download del file S3")
-  return(FALSE)
 }
 
 # Funzione per impostare nodata
@@ -131,4 +139,5 @@ for (product_type in product_types) {
     current_datetime <- current_datetime + hours(interval_hours)
   }
 }
+
 
