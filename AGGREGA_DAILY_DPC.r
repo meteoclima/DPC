@@ -17,7 +17,15 @@ parse_datetime <- function(fname) {
 }
 
 group_by_day <- function(files) {
-  dates <- as.Date(sapply(basename(files), parse_datetime))
+
+  datetimes <- vapply(
+    basename(files),
+    parse_datetime,
+    FUN.VALUE = as.POSIXct(NA, tz = "UTC")
+  )
+
+  dates <- as.Date(datetimes, tz = "UTC")
+
   split(files, dates)
 }
 
@@ -83,3 +91,4 @@ for (day in names(srt_by_day)) {
     NAflag = -9999
   )
 }
+
