@@ -3,141 +3,102 @@ library(jsonlite)
 library(terra)
 library(lubridate)
 
-# Directory di output relativa
+# ----------------------------
+# Directory di output
+# ----------------------------
 output_dir <- "./DPC"
-if (!dir.exists(output_dir)) dir.create(output_dir)
+dir.create(output_dir, showWarnings = FALSE)
 
-# Funzione per convertire datetime in timestamp UTC in ms
-datetime_to_timestamp_ms <- function(datetime) {
-  as.numeric(as.POSIXct(datetime, tz = "UTC")) * 1000
+# ----------------------------
+# Utility
+# ----------------------------
+get_last_product_info <- function(product_type) {
+  url <- paste0(
+    "https://radar-api.protezionecivile.it/findLastProductByType?type=",
+    product_type
+  )
+  res <- GET(url)
+  stopifnot(status_code(res) == 200)
+  fromJSON(content(res, "text", encoding = "UTF-8"))
 }
 
-# Funzione per verificare esistenza prodotto
-exists_product <- function(product_type, timestamp_ms) {
-  url <- paste0("https://radar-api.protezionecivile.it/wide/product/existsProduct?type=", product_type, "&time=", timestamp_ms)
-  response <- tryCatch({
-    GET(url)
-  }, error = function(e) {
-    message("Errore nella richiesta per verificare il prodotto: ", e$message)
-    return(NULL)
-  })
-  
-  if (is.null(response) || status_code(response) != 200) {
-    warning("Errore nella richiesta: ", status_code(response))
-    return(FALSE)
-  }
-  content <- content(response, "text", encoding = "UTF-8")
-  return(tolower(content) == "true")
+iso_period_to_seconds <- function(iso) {
+  as.numeric(period_to_seconds(isoperiod(iso)))
 }
 
-# Funzione per scaricare prodotto
 download_product <- function(product_type, timestamp_ms, output_path) {
-  # 1. Costruisci il corpo della richiesta come da documentazione
+
   body <- list(
     productType = product_type,
     productDate = timestamp_ms
   )
-  
-  # 2. Invia la richiesta all'ENDPOINT CORRETTO
+
   res <- POST(
-    "https://radar-api.protezionecivile.it/downloadProduct", # URL CORRETTO
+    "https://radar-api.protezionecivile.it/wide/product/downloadProduct",
     body = toJSON(body, auto_unbox = TRUE),
     encode = "json",
     add_headers("Content-Type" = "application/json")
   )
-  
-  # 3. Gestisci la risposta: se 404, il prodotto non esiste
-  if (status_code(res) == 404) {
-    message("ℹ️ Prodotto ", product_type, " non disponibile per il timestamp: ", timestamp_ms)
-    return(FALSE) # Indica che non c'è file da scaricare
-  }
-  
-  # 4. Gestisci altri errori HTTP
-  if (status_code(res) != 200) {
-    warning("❌ Errore nella richiesta downloadProduct: ", status_code(res))
-    return(FALSE)
-  }
-  
-  # 5. Estrai l'URL pre-signed dalla risposta JSON
+
+  if (status_code(res) != 200) return(FALSE)
+
   info <- fromJSON(content(res, "text", encoding = "UTF-8"))
-  
-  if (is.null(info$url)) {
-    warning("❌ URL presigned mancante nella risposta.")
-    return(FALSE)
-  }
-  
-  # 6. Scarica il file GeoTIFF usando l'URL ottenuto
+  if (is.null(info$url)) return(FALSE)
+
   r <- GET(info$url, write_disk(output_path, overwrite = TRUE))
-  
-  if (status_code(r) == 200) {
-    message("✅ Scaricato: ", output_path)
-    return(TRUE)
-  } else {
-    warning("❌ Errore nel download del file S3")
-    return(FALSE)
-  }
+  status_code(r) == 200
 }
 
-# Funzione per impostare nodata
-set_nodata_value <- function(input_path, output_path, nodata_value = -9999) {
-  r <- tryCatch({
-    rast(input_path)
-  }, error = function(e) {
-    message("Errore nel caricamento del raster: ", e$message)
-    return(NULL)
-  })
-  
-  if (is.null(r)) {
-    message("❌ Errore nell'elaborazione del raster per", input_path)
-    return(FALSE)
-  }
-  
+set_nodata <- function(input_path, output_path, nodata_value) {
+  r <- rast(input_path)
   NAflag(r) <- nodata_value
   writeRaster(r, output_path, overwrite = TRUE, NAflag = nodata_value)
-  return(TRUE)
 }
 
-# Tipi di prodotto da scaricare
+# ----------------------------
+# PARAMETRI
+# ----------------------------
 product_types <- c("SRT1", "TEMP")
+days_back <- 3   # quanti giorni indietro scaricare
 
-# Date di esempio: ultimi 7 giorni
-start_date <- Sys.Date() - 2
-end_date <- Sys.Date()
-
-interval_hours <- 1
-
+# ----------------------------
+# DOWNLOAD LOOP
+# ----------------------------
 for (product_type in product_types) {
-  current_datetime <- as.POSIXct(start_date, tz = "UTC")
-  end_datetime <- as.POSIXct(end_date + 1, tz = "UTC")
-  while (current_datetime < end_datetime) {
-    timestamp_ms <- datetime_to_timestamp_ms(current_datetime)
-    datetime_str <- format(current_datetime, "%Y%m%d_%H%M")
-    final_file <- file.path(output_dir, paste0(product_type, "_", datetime_str, ".tif"))
-    
-    if (!file.exists(final_file)) {
-      if (exists_product(product_type, timestamp_ms)) {
-        temp_file <- tempfile(fileext = ".tif")
-        success <- tryCatch({
-          download_product(product_type, timestamp_ms, temp_file)
-        }, error = function(e) {
-          message("Errore durante il download del prodotto: ", e$message)
-          return(FALSE)
-        })
-        
-        if (success) {
-          nodata_val <- ifelse(product_type == "TEMP", -99999, -9999)
-          set_nodata_value(temp_file, final_file, nodata_value = nodata_val)
-          unlink(temp_file)
-        }
-      } else {
-        message(paste("❌ Prodotto", product_type, "non disponibile per:", datetime_str))
-      }
-    } else {
-      message(paste("⚠️ File già esistente:", final_file))
+
+  message("➡️ Prodotto ", product_type)
+
+  info <- get_last_product_info(product_type)
+
+  last_time <- as.POSIXct(info$timestamp / 1000,
+                          origin = "1970-01-01",
+                          tz = "UTC")
+
+  step_sec <- iso_period_to_seconds(info$period)
+
+  start_time <- last_time - days(days_back)
+  times <- seq(from = start_time, to = last_time, by = step_sec)
+
+  for (t in times) {
+
+    timestamp_ms <- as.numeric(t) * 1000
+    fname <- paste0(product_type, "_", format(t, "%Y%m%d_%H%M"), ".tif")
+    final_file <- file.path(output_dir, fname)
+
+    if (file.exists(final_file)) next
+
+    tmp <- tempfile(fileext = ".tif")
+
+    ok <- tryCatch(
+      download_product(product_type, timestamp_ms, tmp),
+      error = function(e) FALSE
+    )
+
+    if (ok) {
+      nodata <- ifelse(product_type == "TEMP", -99999, -9999)
+      set_nodata(tmp, final_file, nodata)
+      unlink(tmp)
+      message("   ✅ ", fname)
     }
-    
-    current_datetime <- current_datetime + hours(interval_hours)
   }
 }
-
-
