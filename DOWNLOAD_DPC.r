@@ -24,34 +24,40 @@ get_last_product_info <- function(product_type) {
 
 
 iso_period_to_seconds <- function(iso) {
-  # iso è una stringa tipo "PT10M", "PT1H", "PT30M"
-  
-  # rimuovo il prefisso "PT"
+  if (is.null(iso) || iso == "") {
+    warning("⚠️ Period string is empty, defaulting to 3600 seconds")
+    return(3600)  # default 1 ora
+  }
+
+  # rimuovo il prefisso PT
   x <- gsub("PT", "", iso)
-  
-  # inizializzo secondi
   sec <- 0
-  
-  # se contiene H (ore)
+
+  # ore
   if (grepl("H", x)) {
     h <- as.numeric(sub("H.*", "", x))
     sec <- sec + h * 3600
     x <- sub(".*H", "", x)
   }
-  
-  # se contiene M (minuti)
+
+  # minuti
   if (grepl("M", x)) {
     m <- as.numeric(sub("M.*", "", x))
     sec <- sec + m * 60
     x <- sub(".*M", "", x)
   }
-  
-  # se contiene S (secondi)
+
+  # secondi
   if (grepl("S", x)) {
     s <- as.numeric(sub("S.*", "", x))
     sec <- sec + s
   }
-  
+
+  if (sec == 0) {
+    warning("⚠️ Period string could not be parsed, defaulting to 3600 seconds")
+    sec <- 3600
+  }
+
   return(sec)
 }
 
@@ -131,5 +137,6 @@ for (product_type in product_types) {
     }
   }
 }
+
 
 
