@@ -11,20 +11,17 @@ dir.create(output_dir, showWarnings = FALSE)
 # ----------------------------
 # Utility
 # ----------------------------
-parse_datetime <- function(fname) {
-  # Estrae la data e l'ora dal nome del file (formato YYYYMMDD_HHMM)
-  x <- regmatches(fname, regexpr("\\d{8}_\\d{4}", fname))
-  as.POSIXct(x, format = "%Y%m%d_%H%M", tz = "UTC")
+# Raggruppa i file per giorno estraendo YYYYMMDD
+group_by_day <- function(files) {
+  day_str <- sub(".*_(\\d{8})_\\d{4}\\.tif$", "\\1", basename(files))
+  if(any(nchar(day_str) != 8)) stop("Errore: alcuni nomi di file non seguono il pattern YYYYMMDD_HHMM.tif")
+  split(files, day_str)
 }
 
-group_by_day <- function(files) {
-  datetimes <- vapply(
-    basename(files),
-    parse_datetime,
-    FUN.VALUE = as.POSIXct(NA, tz = "UTC")
-  )
-  dates <- as.Date(datetimes, tz = "UTC")
-  split(files, dates)
+# Estrae la data e l'ora dal nome del file
+extract_datetime <- function(fname) {
+  dt <- regmatches(fname, regexpr("\\d{8}_\\d{4}", fname))
+  as.POSIXct(dt, format = "%Y%m%d_%H%M", tz = "UTC")
 }
 
 # ----------------------------
@@ -43,48 +40,69 @@ srt_files  <- file.path(input_dir, srt_files)
 # ----------------------------
 temp_by_day <- group_by_day(temp_files)
 
-for (day in names(temp_by_day)) {
-  day_str <- format(as.Date(day), "%Y%m%d")
-  
+for (day_str in names(temp_by_day)) {
   message("🌡️ TEMP ", day_str)
   
-  r <- rast(temp_by_day[[day]])
+  r <- rast(temp_by_day[[day_str]])
   NAflag(r) <- -99999
   
   rmin <- app(r, min, na.rm = TRUE)
   rmax <- app(r, max, na.rm = TRUE)
   
-  writeRaster(
-    rmin,
-    file.path(output_dir, paste0("TEMP_MIN_", day_str, ".tif")),
-    overwrite = TRUE,
-    NAflag = -99999
-  )
+  writeRaster(rmin, file.path(output_dir, paste0("TEMP_MIN_", day_str, ".tif")),
+              overwrite = TRUE, NAflag = -99999)
   
-  writeRaster(
-    rmax,
-    file.path(output_dir, paste0("TEMP_MAX_", day_str, ".tif")),
-    overwrite = TRUE,
-    NAflag = -99999
-  )
+  writeRaster(rmax, file.path(output_dir, paste0("TEMP_MAX_", day_str, ".tif")),
+              overwrite = TRUE, NAflag = -99999)
 }
 
 # ----------------------------
-# PIOGGIA — CUMULATA GIORNALIERA (1 file ogni 5 minuti)
+# PIOGGIA — TOTALE REALE (1 file per ora)
 # ----------------------------
+
 srt_by_day <- group_by_day(srt_files)
 
-for (day in names(srt_by_day)) {
-  day_str <- format(as.Date(day), "%Y%m%d")
-  
+for (day_str in names(srt_by_day)) {
   message("🌧️ SRT1 ", day_str)
   
-  r <- rast(srt_by_day[[day]])
-  NAflag(r) <- -9999
+  sfiles <- srt_by_day[[day_str]]
   
-  # Somma giornaliera delle precipitazioni
-  rs <- app(r, sum, na.rm = TRUE)
+  # Estrai datetime dai nomi dei file
+  datetimes <- vapply(
+    sfiles,
+    extract_datetime,
+    FUN.VALUE = as.POSIXct(NA),
+    USE.NAMES = FALSE
+  )
   
+  
+  # Prendi 1 file per ora
+  hours <- lubridate::hour(datetimes)
+  
+  selected_files <- sfiles[!duplicated(hours)]
+  
+  if(length(selected_files) == 0) {
+    warning("Nessun file valido per il giorno ", day_str)
+    next
+  }
+  
+  # Caso singolo file
+  if(length(selected_files) == 1) {
+    rs <- rast(selected_files[1])
+    NAflag(rs) <- -9999
+  } else {
+    # Caso più file: somma manuale
+    rs <- rast(selected_files[1])
+    NAflag(rs) <- -9999
+    
+    for(f in selected_files[-1]) {
+      r <- rast(f)
+      NAflag(r) <- -9999
+      rs <- rs + r
+    }
+  }
+  
+  # Scrivi raster aggregato giornaliero
   writeRaster(
     rs,
     file.path(output_dir, paste0("SRT1_SUM_", day_str, ".tif")),
