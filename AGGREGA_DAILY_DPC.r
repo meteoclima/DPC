@@ -12,25 +12,23 @@ dir.create(output_dir, showWarnings = FALSE)
 # Utility
 # ----------------------------
 parse_datetime <- function(fname) {
+  # Estrae la data e l'ora dal nome del file (formato YYYYMMDD_HHMM)
   x <- regmatches(fname, regexpr("\\d{8}_\\d{4}", fname))
   as.POSIXct(x, format = "%Y%m%d_%H%M", tz = "UTC")
 }
 
 group_by_day <- function(files) {
-
   datetimes <- vapply(
     basename(files),
     parse_datetime,
     FUN.VALUE = as.POSIXct(NA, tz = "UTC")
   )
-
   dates <- as.Date(datetimes, tz = "UTC")
-
   split(files, dates)
 }
 
 # ----------------------------
-# File list
+# Lista file
 # ----------------------------
 all_files <- list.files(input_dir, pattern = "\\.tif$", full.names = TRUE)
 
@@ -41,54 +39,56 @@ temp_files <- file.path(input_dir, temp_files)
 srt_files  <- file.path(input_dir, srt_files)
 
 # ----------------------------
-# TEMPERATURA — MIN / MAX
+# TEMPERATURA — MIN / MAX (1 file ogni ora)
 # ----------------------------
 temp_by_day <- group_by_day(temp_files)
 
 for (day in names(temp_by_day)) {
-
-  message("🌡️ TEMP ", day)
-
+  day_str <- format(as.Date(day), "%Y%m%d")
+  
+  message("🌡️ TEMP ", day_str)
+  
   r <- rast(temp_by_day[[day]])
   NAflag(r) <- -99999
-
+  
   rmin <- app(r, min, na.rm = TRUE)
   rmax <- app(r, max, na.rm = TRUE)
-
+  
   writeRaster(
     rmin,
-    file.path(output_dir, paste0("TEMP_MIN_", day, ".tif")),
+    file.path(output_dir, paste0("TEMP_MIN_", day_str, ".tif")),
     overwrite = TRUE,
     NAflag = -99999
   )
-
+  
   writeRaster(
     rmax,
-    file.path(output_dir, paste0("TEMP_MAX_", day, ".tif")),
+    file.path(output_dir, paste0("TEMP_MAX_", day_str, ".tif")),
     overwrite = TRUE,
     NAflag = -99999
   )
 }
 
 # ----------------------------
-# PIOGGIA — CUMULATA GIORNALIERA
+# PIOGGIA — CUMULATA GIORNALIERA (1 file ogni 5 minuti)
 # ----------------------------
 srt_by_day <- group_by_day(srt_files)
 
 for (day in names(srt_by_day)) {
-
-  message("🌧️ SRT1 ", day)
-
+  day_str <- format(as.Date(day), "%Y%m%d")
+  
+  message("🌧️ SRT1 ", day_str)
+  
   r <- rast(srt_by_day[[day]])
   NAflag(r) <- -9999
-
+  
+  # Somma giornaliera delle precipitazioni
   rs <- app(r, sum, na.rm = TRUE)
-
+  
   writeRaster(
     rs,
-    file.path(output_dir, paste0("SRT1_SUM_", day, ".tif")),
+    file.path(output_dir, paste0("SRT1_SUM_", day_str, ".tif")),
     overwrite = TRUE,
     NAflag = -9999
   )
 }
-
