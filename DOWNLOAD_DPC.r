@@ -13,7 +13,7 @@ dir.create(output_dir, showWarnings = FALSE)
 # PARAMETRI
 # ----------------------------
 product_types <- c("SRT1", "TEMP")
-days_back <- 3   # ultimi 3 giorni
+days_back <- 2   # ultimi 3 giorni, portato a 2
 
 # ----------------------------
 # FUNZIONI UTILI
@@ -119,4 +119,5 @@ for (product_type in product_types) {
 }
 
 cat("\n DOWNLOAD COMPLETATO!\n")
+
 
