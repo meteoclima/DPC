@@ -9,7 +9,6 @@ library(lubridate)
 output_dir <- "./DPC"
 dir.create(output_dir, showWarnings = FALSE)
 
-
 # ----------------------------
 # PARAMETRI
 # ----------------------------
@@ -47,15 +46,27 @@ set_nodata <- function(input_path, output_path, nodata_value) {
 }
 
 # Funzione per arrotondare timestamp al passo corretto (period)
-round_timestamp <- function(ts_ms, period_iso) {
-  sec <- 0
+# ----------------------------
+# CONVERSIONE ISO 8601 PERIOD IN SECONDI
+# ----------------------------
+iso_period_to_seconds <- function(period_iso) {
+  if (is.null(period_iso) || period_iso == "") return(3600)  # default 1h
   x <- gsub("PT", "", period_iso)
-  if (grepl("H", x)) { sec <- sec + as.numeric(sub("H.*", "", x))*3600; x <- sub(".*H", "", x) }
-  if (grepl("M", x)) { sec <- sec + as.numeric(sub("M.*", "", x))*60; x <- sub(".*M", "", x) }
+  sec <- 0
+  if (grepl("H", x)) { sec <- sec + as.numeric(sub("H.*", "", x)) * 3600; x <- sub(".*H", "", x) }
+  if (grepl("M", x)) { sec <- sec + as.numeric(sub("M.*", "", x)) * 60; x <- sub(".*M", "", x) }
   if (grepl("S", x)) { sec <- sec + as.numeric(sub("S.*", "", x)) }
-  if (sec <= 0 || is.na(sec)) sec <- 3600
-  ts_sec <- floor(ts_ms/1000/sec)*sec
-  ts_sec*1000
+  if (is.na(sec) || sec <= 0) sec <- 3600  # fallback 1h
+  sec
+}
+
+# ----------------------------
+# ARROTONDA TIMESTAMP AL PERIODO
+# ----------------------------
+round_timestamp <- function(ts_ms, period_iso) {
+  step_sec <- iso_period_to_seconds(period_iso)
+  ts_sec <- floor(ts_ms / 1000 / step_sec) * step_sec
+  ts_sec * 1000
 }
 
 # ----------------------------
@@ -108,3 +119,4 @@ for (product_type in product_types) {
 }
 
 cat("\n DOWNLOAD COMPLETATO!\n")
+
