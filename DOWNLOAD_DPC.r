@@ -9,143 +9,102 @@ library(lubridate)
 output_dir <- "./DPC"
 dir.create(output_dir, showWarnings = FALSE)
 
+
 # ----------------------------
-# Utility
+# PARAMETRI
+# ----------------------------
+product_types <- c("SRT1", "TEMP")
+days_back <- 3   # ultimi 3 giorni
+
+# ----------------------------
+# FUNZIONI UTILI
 # ----------------------------
 
-get_last_product_info <- function(product_type) {
-  url <- paste0(
-    "https://radar-api.protezionecivile.it/findLastProductByType?type=",
-    product_type
-  )
-  res <- GET(url)
-  stopifnot(status_code(res) == 200)
-  fromJSON(content(res, "text", encoding = "UTF-8"))
-}
-
-iso_period_to_seconds <- function(iso) {
-
-  if (is.null(iso) || iso == "") {
-    warning("⚠️ Period vuoto, uso default 3600 s")
-    return(3600)
-  }
-
-  x <- gsub("PT", "", iso)
-  sec <- 0
-
-  if (grepl("H", x)) {
-    sec <- sec + as.numeric(sub("H.*", "", x)) * 3600
-    x <- sub(".*H", "", x)
-  }
-
-  if (grepl("M", x)) {
-    sec <- sec + as.numeric(sub("M.*", "", x)) * 60
-    x <- sub(".*M", "", x)
-  }
-
-  if (grepl("S", x)) {
-    sec <- sec + as.numeric(sub("S.*", "", x))
-  }
-
-  if (sec <= 0 || is.na(sec)) {
-    warning("⚠️ Period non interpretabile, uso default 3600 s")
-    sec <- 3600
-  }
-
-  sec
-}
-
+# Funzione per scaricare un prodotto dato timestamp
 download_product <- function(product_type, timestamp_ms, output_path) {
-
   body <- list(
     productType = product_type,
     productDate = timestamp_ms
   )
-
   res <- POST(
-    "https://radar-api.protezionecivile.it/wide/product/downloadProduct",
+    "https://radar-api.protezionecivile.it/downloadProduct",
     body = toJSON(body, auto_unbox = TRUE),
     encode = "json",
     add_headers("Content-Type" = "application/json")
   )
-
   if (status_code(res) != 200) return(FALSE)
-
   info <- fromJSON(content(res, "text", encoding = "UTF-8"))
   if (is.null(info$url)) return(FALSE)
-
   r <- GET(info$url, write_disk(output_path, overwrite = TRUE))
   status_code(r) == 200
 }
 
+# Imposta valore nodata nel raster
 set_nodata <- function(input_path, output_path, nodata_value) {
   r <- rast(input_path)
   NAflag(r) <- nodata_value
   writeRaster(r, output_path, overwrite = TRUE, NAflag = nodata_value)
 }
 
-# ----------------------------
-# PARAMETRI
-# ----------------------------
-product_types <- c("SRT1", "TEMP")
-days_back <- 3
+# Funzione per arrotondare timestamp al passo corretto (period)
+round_timestamp <- function(ts_ms, period_iso) {
+  sec <- 0
+  x <- gsub("PT", "", period_iso)
+  if (grepl("H", x)) { sec <- sec + as.numeric(sub("H.*", "", x))*3600; x <- sub(".*H", "", x) }
+  if (grepl("M", x)) { sec <- sec + as.numeric(sub("M.*", "", x))*60; x <- sub(".*M", "", x) }
+  if (grepl("S", x)) { sec <- sec + as.numeric(sub("S.*", "", x)) }
+  if (sec <= 0 || is.na(sec)) sec <- 3600
+  ts_sec <- floor(ts_ms/1000/sec)*sec
+  ts_sec*1000
+}
 
 # ----------------------------
-# DOWNLOAD LOOP
+# LOOP SU OGNI PRODOTTO
 # ----------------------------
 for (product_type in product_types) {
-
-  message("➡️ Prodotto ", product_type)
-
-  info <- get_last_product_info(product_type)
-
-  # ---- Verifica disponibilità prodotto
-  if (is.null(info$lastProducts) || nrow(info$lastProducts) == 0) {
-    warning("⚠️ Nessun prodotto disponibile per ", product_type)
-    next
-  }
-
-  # ---- Estrazione valori (lastProducts è data.frame)
-  timestamp_ms <- info$lastProducts$time[1]
-  period_iso   <- info$lastProducts$period[1]
-
-  step_sec <- iso_period_to_seconds(period_iso)
-
-  last_time <- as.POSIXct(timestamp_ms / 1000,
-                          origin = "1970-01-01", tz = "UTC")
-
-  start_time <- last_time - days(days_back)
-
-  # ---- Sequenza temporale (forzata POSIXct)
-  times <- seq(from = start_time, to = last_time, by = step_sec)
-  times <- as.POSIXct(times, origin = "1970-01-01", tz = "UTC")
-
+  cat("\n➡️ Prodotto:", product_type, "\n")
+  
+  # 1️⃣ Recupera ultimo prodotto
+  url_info <- paste0("https://radar-api.protezionecivile.it/findLastProductByType?type=", product_type)
+  res_info <- GET(url_info)
+  if (status_code(res_info)!=200) { warning("⚠️ Errore API per ", product_type); next }
+  
+  info <- fromJSON(content(res_info, "text", encoding="UTF-8"))
+  if (length(info$lastProducts)==0) { warning("⚠️ Nessun prodotto disponibile per ", product_type); next }
+  
+  last_ts <- info$lastProducts$time[1]
+  period <- info$lastProducts$period[1]
+  
+  # 2️⃣ Calcola intervallo temporale ultimi 3 giorni, arrotondato al periodo
+  last_ts_rounded <- round_timestamp(last_ts, period)
+  start_ts <- as.numeric(as.POSIXct(Sys.time() - days(days_back), tz="UTC"))*1000
+  start_ts_rounded <- round_timestamp(start_ts, period)
+  
+  # Sequenza di timestamp
+  step_sec <- iso_period_to_seconds(period)
+  
+  times <- seq(from=start_ts_rounded/1000, to=last_ts_rounded/1000, by=step_sec)
+  
+  # 3️⃣ Scarica ogni timestamp disponibile
   for (t in times) {
-
-    timestamp_ms_loop <- as.numeric(t) * 1000
-
-    fname <- paste0(
-      product_type, "_",
-      strftime(t, "%Y%m%d_%H%M"),
-      ".tif"
-    )
-
+    timestamp_ms <- as.numeric(t)*1000
+    t_posix <- as.POSIXct(timestamp_ms/1000, origin="1970-01-01", tz="UTC")
+    fname <- paste0(product_type, "_", strftime(t_posix, "%Y%m%d_%H%M"), ".tif")
     final_file <- file.path(output_dir, fname)
-
     if (file.exists(final_file)) next
-
+    
     tmp <- tempfile(fileext = ".tif")
-
-    ok <- tryCatch(
-      download_product(product_type, timestamp_ms_loop, tmp),
-      error = function(e) FALSE
-    )
-
+    ok <- tryCatch(download_product(product_type, timestamp_ms, tmp), error=function(e) FALSE)
+    
     if (ok) {
-      nodata <- ifelse(product_type == "TEMP", -99999, -9999)
+      nodata <- ifelse(product_type=="TEMP",-99999,-9999)
       set_nodata(tmp, final_file, nodata)
       unlink(tmp)
-      message("   ✅ ", fname)
+      cat("   ✅", fname, "\n")
+    } else {
+      cat("   ❌", fname, "non disponibile\n")
     }
   }
 }
+
+cat("\n DOWNLOAD COMPLETATO!\n")
