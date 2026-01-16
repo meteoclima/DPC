@@ -34,5 +34,5 @@ jobs:
         run: Rscript meteo_script.R
         
       - name: Upload results to Drive
-        run: Rscript upload_to_drive.r
+        run: Rscript upload_to_drive2.r
         
