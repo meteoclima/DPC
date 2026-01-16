@@ -3,7 +3,7 @@ library(jsonlite)
 library(dplyr)
 library(lubridate)
 
-output_dir <- "./DPC/aggregati"
+output_dir <- "./METEO/CSV"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 get_meteo_data <- function(base_url, query_string, var_filter, convert_temp = FALSE) {
@@ -167,6 +167,7 @@ write.csv(temp_full,
 
 
 cat("CSV precipitazioni aggregato creato.\n")
+
 
 
 
