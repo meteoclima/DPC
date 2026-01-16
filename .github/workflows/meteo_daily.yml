@@ -1,0 +1,36 @@
+name: Meteo Daily Workflow
+
+on:
+  schedule:
+    - cron: "0 5 * * *"   # 05:00 CET (GitHub usa UTC)
+  workflow_dispatch:
+
+jobs:
+  run-meteo:
+    runs-on: ubuntu-latest
+
+    env:
+      GDRIVE_KEY: ${{ secrets.GDRIVE_KEY }}
+      GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+
+      - name: Install R packages
+        run: |
+          install.packages(c(
+            "httr","jsonlite","dplyr",
+            "lubridate","googledrive"
+          ))
+        shell: Rscript {0}
+
+      - name: Run meteo script
+        run: Rscript meteo_script.R
+
+      - name: Upload results to Drive
+        run: Rscript upload_drive.R
+        
