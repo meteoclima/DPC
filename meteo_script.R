@@ -3,7 +3,8 @@ library(jsonlite)
 library(dplyr)
 library(lubridate)
 
-output_dir <- "output"
+output_dir <- "./DPC/aggregati"
+
 dir.create(output_dir, showWarnings = FALSE)
 
 
@@ -168,4 +169,5 @@ write.csv(temp_full,
 
 
 cat("CSV precipitazioni aggregato creato.\n")
+
 
