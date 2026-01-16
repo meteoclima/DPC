@@ -4,9 +4,7 @@ library(dplyr)
 library(lubridate)
 
 output_dir <- "./DPC/aggregati"
-
-dir.create(output_dir, showWarnings = FALSE)
-
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 get_meteo_data <- function(base_url, query_string, var_filter, convert_temp = FALSE) {
   response <- GET(
@@ -169,5 +167,6 @@ write.csv(temp_full,
 
 
 cat("CSV precipitazioni aggregato creato.\n")
+
 
 
