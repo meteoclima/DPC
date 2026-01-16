@@ -1,28 +1,29 @@
 library(googledrive)
 
-# Read service account JSON from secret
-json_key <- Sys.getenv("GDRIVE_KEY")
-if(json_key == "") stop("GDRIVE_KEY is empty!")
-json_path <- tempfile(fileext = ".json")
-writeLines(json_key, json_path)
-on.exit(unlink(json_path))  # remove temp file
+# Autenticazione tramite OAuth JSON dal secret GitHub
+json_token <- Sys.getenv("GDRIVE_OAUTH_JSON")
+if(json_token == "") stop("GDRIVE_OAUTH_JSON vuoto!")
+token_path <- tempfile(fileext = ".json")
+writeLines(json_token, token_path)
+on.exit(unlink(token_path))  # cancella file alla fine
 
-# Authenticate using service account
-drive_auth(path = json_path)
+drive_auth(path = token_path)
 
-# ID della cartella Drive
+# Cartella Drive
 drive_folder_id <- Sys.getenv("GDRIVE_FOLDER_ID")
-if(drive_folder_id == "") stop("GDRIVE_FOLDER_ID is empty!")
 
-# Local folder with files
+# Cartella locale
 local_dir <- "./DPC/aggregati"
 dir.create(local_dir, showWarnings = FALSE, recursive = TRUE)
 
-# Files to upload (CSV in questo caso)
+# Upload CSV
 files <- list.files(local_dir, pattern = "\\.csv$", full.names = TRUE)
-
-# Upload each file
 for(file in files){
-  message("Uploading ", basename(file), " to Drive folder ", drive_folder_id)
-  drive_upload(media = file, path = as_id(drive_folder_id), overwrite = TRUE)
+  message("Uploading ", basename(file))
+  drive_upload(
+    media = file,
+    path = as_id(drive_folder_id),
+    overwrite = TRUE
+  )
 }
+
