@@ -13,7 +13,7 @@ drive_auth(path = token_path)
 drive_folder_id <- Sys.getenv("GDRIVE_FOLDER_ID")
 
 # Cartella locale
-local_dir <- "./DPC/aggregati"
+local_dir <- "./METEO/CSV"
 dir.create(local_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Upload CSV
@@ -26,4 +26,5 @@ for(file in files){
     overwrite = TRUE
   )
 }
+
 
