@@ -27,7 +27,7 @@ jobs:
             lubridate
             googledrive
 
-      - name: Run meteo script
+      - name: Run Meteo Script
         run: Rscript meteo_script.R
 
       - name: Upload CSV to Google Drive
