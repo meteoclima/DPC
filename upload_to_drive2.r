@@ -7,13 +7,18 @@ json_path <- tempfile(fileext = ".json")
 writeLines(json_key, json_path)
 on.exit(unlink(json_path))
 
-drive_auth(path = json_path)
+# 🔑 FULL DRIVE SCOPE (FONDAMENTALE)
+drive_auth(
+  path = json_path,
+  scopes = "https://www.googleapis.com/auth/drive"
+)
 
 drive_folder_id <- Sys.getenv("GDRIVE_FOLDER_ID")
-if (drive_folder_id == "") stop("GDRIVE_FOLDER_ID vuoto!")
 
-local_dir <- "./METEO/CSV"
-files <- list.files(local_dir, pattern = "\\.csv$", full.names = TRUE)
+# Debug: deve funzionare
+drive_get(as_id(drive_folder_id))
+
+files <- list.files("./METEO/CSV", pattern = "\\.csv$", full.names = TRUE)
 
 for (file in files) {
   message("Uploading ", basename(file))
