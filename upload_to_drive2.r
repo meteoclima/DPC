@@ -1,30 +1,23 @@
+
 library(googledrive)
 
+# Write the JSON key from environment variable to a temp file
 json_key <- Sys.getenv("GDRIVE_SERVICE_ACCOUNT_JSON")
-if (json_key == "") stop("GDRIVE_SERVICE_ACCOUNT_JSON vuoto!")
-
 json_path <- tempfile(fileext = ".json")
 writeLines(json_key, json_path)
-on.exit(unlink(json_path))
 
-# 🔑 FULL DRIVE SCOPE (FONDAMENTALE)
-drive_auth(
-  path = json_path,
-  scopes = "https://www.googleapis.com/auth/drive"
-)
+# Authenticate using the service account JSON key
+drive_auth(path = json_path)
 
-drive_folder_id <- Sys.getenv("GDRIVE_FOLDER_ID")
+# Google Drive folder ID (remove any URL query parameters)
+drive_folder_id <- "1o-1bHJ3nzNEEj1M8eY468BPKZkJXpyYj"
 
-# Debug: deve funzionare
-drive_get(as_id(drive_folder_id))
+# Local directory with files to upload
+local_dir <- "./METEO/CSV"
+files <- list.files(local_dir, pattern = "\\.csv$", full.names = TRUE)
 
-files <- list.files("./METEO/CSV", pattern = "\\.csv$", full.names = TRUE)
-
+# Upload each file to the Drive folder
 for (file in files) {
-  message("Uploading ", basename(file))
-  drive_upload(
-    media = file,
-    path = as_id(drive_folder_id),
-    overwrite = TRUE
-  )
+  message("Uploading ", basename(file), " to Google Drive folder with ID: ", drive_folder_id)
+  drive_upload(media = file, path = as_id(drive_folder_id), overwrite = TRUE)
 }
