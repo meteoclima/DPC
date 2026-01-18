@@ -102,7 +102,12 @@ for(hr in hour_ranges){
 }
 
 temp_full <- do.call(rbind, temp_list)
-write.csv(temp_full, paste0("temperature_raw_", yesterday, ".csv"), row.names = FALSE, fileEncoding = "UTF-8")
+
+write.csv(temp_full,
+          file.path(output_dir, paste0("temperature_raw_", yesterday, ".csv")),
+          row.names = FALSE, fileEncoding = "UTF-8")
+
+
 cat("CSV temperatura 24 ore creato.\n")
 
 temp_summary <- temp_full %>%
@@ -112,7 +117,11 @@ temp_summary <- temp_full %>%
     temp_max = max(value, na.rm = TRUE),
     .groups = "drop"
   )
-write.csv(temp_summary, paste0("temperature_summary_", yesterday, ".csv"), row.names = FALSE, fileEncoding = "UTF-8")
+
+write.csv(temp_summary,
+          file.path(output_dir, paste0("temperature_summary_", yesterday, ".csv")),
+          row.names = FALSE, fileEncoding = "UTF-8")
+
 cat("CSV temperatura aggregata creato.\n")
 
 # -------------------------
@@ -138,7 +147,12 @@ for(hr in hour_ranges){
 }
 
 prec_full <- do.call(rbind, prec_list)
-write.csv(prec_full, paste0("precipitazioni_raw_", yesterday, ".csv"), row.names = FALSE, fileEncoding = "UTF-8")
+
+write.csv(prec_full,
+          file.path(output_dir, paste0("precipitazioni_raw_", yesterday, ".csv")),
+          row.names = FALSE, fileEncoding = "UTF-8")
+
+
 cat("CSV precipitazioni 24 ore creato.\n")
 
 prec_summary <- prec_full %>%
@@ -147,5 +161,11 @@ prec_summary <- prec_full %>%
     total_prec = sum(value, na.rm = TRUE),
     .groups = "drop"
   )
-write.csv(prec_summary, paste0("precipitazioni_summary_", yesterday, ".csv"), row.names = FALSE, fileEncoding = "UTF-8")
+
+write.csv(prec_summary,
+          file.path(output_dir, paste0("precipitazioni_summary_", yesterday, ".csv")),
+          row.names = FALSE, fileEncoding = "UTF-8")
+
+
 cat("CSV precipitazioni aggregato creato.\n")
+
