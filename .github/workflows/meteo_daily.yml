@@ -25,6 +25,7 @@ jobs:
             dplyr
             lubridate
             googledrive
+            zoo
 
       - name: Run Meteo Script
         run: Rscript meteo_script.R
