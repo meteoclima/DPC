@@ -82,7 +82,7 @@ get_meteo_data <- function(base_url, query_string, var_filter, convert_temp = FA
 
 
 # Giorno precedente
-yesterday <- Sys.Date() - 2
+yesterday <- Sys.Date() - 1
 
 # Funzione per generare orari 1 ora a intervallo
 generate_hour_ranges <- function(date) {
@@ -232,5 +232,6 @@ write.csv(temp_hourly, file.path(output_dir, paste0("temperature_hourly_", yeste
 
 write.csv(prec_hourly, file.path(output_dir, paste0("precipitation_hourly_", yesterday, ".csv")),
           row.names = FALSE, fileEncoding = "UTF-8")
+
 
 
