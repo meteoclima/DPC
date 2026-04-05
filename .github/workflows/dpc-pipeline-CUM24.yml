@@ -25,11 +25,6 @@ jobs:
           Rscript -e 'install.packages(c("httr","jsonlite","terra","lubridate","googledrive","base64enc","stringr"))'
 
 
-      - name: empty trash Google Drive
-        env:
-          GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
-        run: Rscript empty_trash.R
-      
       - name: Run download script
         run: Rscript download_cum24.r
 
