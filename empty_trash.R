@@ -12,18 +12,25 @@ drive_auth(path = json_path)
 permanently_empty_trash <- function(confirm = TRUE) {
   message("Checking for items in trash...")
   
-  # List all files in trash
-  trash_files <- drive_find(q = "trashed = true", 
-                            trashed = TRUE,
-                            fields = "files(id, name, mimeType)")
+  # List all files in trash - corrected syntax
+  trash_files <- tryCatch({
+    drive_find(q = "trashed = true", trashed = TRUE)
+  }, error = function(e) {
+    message("Error listing trash files: ", e$message)
+    # Alternative approach without the trashed parameter
+    drive_find(q = "trashed = true")
+  })
   
-  if (nrow(trash_files) == 0) {
+  # Check if we got any results
+  if (is.null(trash_files) || nrow(trash_files) == 0) {
     message("No items found in trash.")
     return(invisible(NULL))
   }
   
   message(sprintf("Found %d item(s) in trash:", nrow(trash_files)))
-  print(trash_files[, c("name", "id")])
+  if (nrow(trash_files) > 0) {
+    print(data.frame(name = trash_files$name, id = trash_files$id))
+  }
   
   # Confirm deletion if required
   if (confirm) {
@@ -34,27 +41,30 @@ permanently_empty_trash <- function(confirm = TRUE) {
         return(invisible(NULL))
       }
     } else {
-      message("Non-interactive session: skipping confirmation.")
-      if (!confirm) {
-        message("Proceeding with deletion...")
-      } else {
-        message("Deletion cancelled (confirmation required but not available).")
-        return(invisible(NULL))
-      }
+      # In non-interactive mode, proceed without confirmation when confirm=TRUE
+      message("Non-interactive session: proceeding with deletion...")
     }
   }
   
   # Permanently delete each item
+  success_count <- 0
+  error_count <- 0
+  
   for (i in 1:nrow(trash_files)) {
     file_id <- trash_files$id[i]
     file_name <- trash_files$name[i]
-    message(sprintf("Permanently deleting: %s (%s)", file_name, file_id))
-    drive_rm(file = as_id(file_id), forever = TRUE)
+    tryCatch({
+      message(sprintf("Permanently deleting: %s (%s)", file_name, file_id))
+      drive_rm(file = as_id(file_id), forever = TRUE)
+      success_count <- success_count + 1
+    }, error = function(e) {
+      message(sprintf("Failed to delete %s: %s", file_name, e$message))
+      error_count <- error_count + 1
+    })
   }
   
-  message("All items have been permanently deleted from trash.")
+  message(sprintf("Deleted %d items, %d errors", success_count, error_count))
 }
 
 # Execute the trash emptying
-# To skip confirmation (for automated scripts), change to FALSE:
-permanently_empty_trash(confirm = TRUE)
+permanently_empty_trash(confirm = FALSE)  # Set to FALSE for automated execution
