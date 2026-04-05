@@ -30,7 +30,7 @@ jobs:
       - name: empty trash Google Drive
         env:
           GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
-        run: empty_trash.R
+        run: Rscript empty_trash.R
 
       
       - name: Run Meteo Script
