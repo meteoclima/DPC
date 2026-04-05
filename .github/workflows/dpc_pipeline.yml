@@ -30,7 +30,7 @@ jobs:
       - name: Run aggregation script
         run: Rscript AGGREGA_DAILY_DPC.r
 
-      - name: Upload aggregated files to Google Drive
+      - name: Upload files to Google Drive
         env:
-          GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+          GDRIVE_TOKEN_B64: ${{ secrets.GDRIVE_TOKEN_B64 }}
         run: Rscript upload_to_drive.r
