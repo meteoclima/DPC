@@ -21,9 +21,16 @@ jobs:
           sudo apt-get install -y libgdal-dev libproj-dev libgeos-dev
 
       - name: Install R packages
-        run: |
-          Rscript -e 'install.packages(c("httr","jsonlite","terra","lubridate","googledrive","base64enc"))'
-
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            httr
+            jsonlite
+            terra
+            lubridate
+            googledrive
+            base64enc
+      
       - name: Run download script
         run: Rscript DOWNLOAD_DPC.r
 
