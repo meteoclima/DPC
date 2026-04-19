@@ -24,6 +24,18 @@ jobs:
         run: |
           Rscript -e 'install.packages(c("httr","jsonlite","terra","lubridate","googledrive","base64enc","stringr"))'
 
+      - name: Install R packages
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            httr
+            jsonlite
+            terra
+            lubridate
+            googledrive
+            base64enc
+            stringr
+
 
       - name: Run download script
         run: Rscript download_cum24.r
